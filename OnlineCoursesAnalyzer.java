@@ -3,11 +3,16 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Date;
+import java.util.Map.Entry;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 /**
  * This is just a demo for you, please run it on JDK17 (some statements may be not allowed in lower
@@ -57,7 +62,7 @@ public class OnlineCoursesAnalyzer {
     public Map<String, Integer> getPtcpCountByInst() {
         Map<String, Integer> map = new TreeMap<>();
         for (Course i : courses) {
-            map.merge(i.getInstitution(), 1, Integer::sum);
+            map.merge(i.getInstitution(), i.getParticipants(), Integer::sum);
         }
         return map;
     }
@@ -66,14 +71,24 @@ public class OnlineCoursesAnalyzer {
     public Map<String, Integer> getPtcpCountByInstAndSubject() {
         Map<String, Integer> map = new TreeMap<>();
         for (Course i : courses) {
-            map.merge(i.getInstitutionAndSubject(), 1, Integer::sum);
+            map.merge(i.getInstitutionAndSubject(), i.getParticipants(), Integer::sum);
+        }
+        List<Entry<String, Integer>> list = new ArrayList<Entry<String, Integer>>(map.entrySet());
+        Collections.sort(list, new Comparator<Map.Entry<String, Integer>>() {
+            public int compare(Entry<String, Integer> e1, Entry<String, Integer> e2) {
+                return e2.getValue().compareTo(e1.getValue());
+            }
+        });
+        map = new LinkedHashMap<>();
+        for (Map.Entry<String, Integer> mapping : list) {
+            map.put(mapping.getKey(), mapping.getValue());
         }
         return map;
     }
 
     //3
     public Map<String, List<List<String>>> getCourseListOfInstructor() {
-        Map<String, List<List<String>>> map = new HashMap<>();
+        Map<String, List<List<String>>> map = new LinkedHashMap<>();
         for (Course i : courses) {
             if (i.getInstructor().indexOf(',') == -1) {
                 List<List<String>> list = new ArrayList<List<String>>();
@@ -83,13 +98,12 @@ public class OnlineCoursesAnalyzer {
                 listList = new ArrayList<String>();
                 list.add(listList);
                 map.merge(i.getInstructor(), list, (o, n) -> {
-                    List<List<String>> l = new ArrayList<List<String>>();
-                    List<String> lL = o.get(0);
-                    lL.add(n.get(0).get(0));
-                    l.add(lL);
-                    lL = o.get(1);
-                    l.add(lL);
-                    return l;
+                    if (o.get(0).indexOf(i.getCourseTitle()) == -1) {
+                        List<List<String>> l = o;
+                        l.get(0).add(i.getCourseTitle());
+                        return l;
+                    }
+                    return o;
                 });
             } else {
                 String[] instructors = i.getInstructor().split(",");
@@ -100,14 +114,13 @@ public class OnlineCoursesAnalyzer {
                     listList = new ArrayList<String>();
                     listList.add(i.getCourseTitle());
                     list.add(listList);
-                    map.merge(i.getInstructor(), list, (o, n) -> {
-                        List<List<String>> l = new ArrayList<List<String>>();
-                        List<String> lL = o.get(0);
-                        l.add(lL);
-                        lL = o.get(1);
-                        lL.add(n.get(1).get(0));
-                        l.add(lL);
-                        return l;
+                    map.merge(j, list, (o, n) -> {
+                        if (o.get(0).indexOf(i.getCourseTitle()) == -1) {
+                            List<List<String>> l = o;
+                            l.get(1).add(i.getCourseTitle());
+                            return l;
+                        }
+                        return o;
                     });
                 }
             }
@@ -120,24 +133,24 @@ public class OnlineCoursesAnalyzer {
         if (by == "hours") {
             return courses.stream().sorted((p, q) -> {
                 if (p.getHours() > q.getHours()) {
-                    return 1;
+                    return -1;
                 } else if (p.getHours() == q.getHours()) {
                     return 0;
                 } else {
-                    return -1;
+                    return 1;
                 }
-            }).limit(topK).map(Course::getCourseTitle).toList();
+            }).map(Course::getCourseTitle).distinct().limit(topK).toList();
         }
         if (by == "participants") {
             return courses.stream().sorted((p, q) -> {
                 if (p.getParticipants() > q.getParticipants()) {
-                    return 1;
+                    return -1;
                 } else if (p.getParticipants() == q.getParticipants()) {
                     return 0;
                 } else {
-                    return -1;
+                    return 1;
                 }
-            }).limit(topK).map(Course::getCourseTitle).toList();
+            }).map(Course::getCourseTitle).distinct().limit(topK).toList();
         }
         return null;
     }
@@ -146,9 +159,9 @@ public class OnlineCoursesAnalyzer {
     public List<String> searchCourses(String courseSubject, double percentAudited,
         double totalCourseHours) {
         return courses.stream().filter((p) -> {
-            return p.getSubject().equalsIgnoreCase(courseSubject)
+            return p.getSubject().toLowerCase().contains(courseSubject.toLowerCase())
                 && p.getPercentAudited() >= percentAudited && p.getHours() <= totalCourseHours;
-        }).map(Course::getCourseTitle).toList();
+        }).map(Course::getCourseTitle).distinct().sorted().toList();
     }
 
     //6
@@ -266,7 +279,7 @@ public class OnlineCoursesAnalyzer {
             return this.totalHours;
         }
 
-        public double getParticipants() {
+        public int getParticipants() {
             return this.participants;
         }
 
