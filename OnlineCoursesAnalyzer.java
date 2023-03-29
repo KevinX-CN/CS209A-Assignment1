@@ -3,7 +3,6 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
@@ -12,9 +11,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 /**
  * This is just a demo for you, please run it on JDK17 (some statements may be not allowed in lower
@@ -169,23 +170,51 @@ public class OnlineCoursesAnalyzer {
 
     //6
     public List<String> recommendCourses(int age, int gender, int isBachelorOrHigher) {
+        Map<String, List<Double>> map = new HashMap<>();
+        for (Course i : courses) {
+            map.merge(i.getCourseNumber(), i.getNumbers(), (o, n) ->
+            {
+                List<Double> l = new ArrayList<>();
+                l.add((o.get(0) * o.get(3) + n.get(0) * n.get(3)) / (o.get(3) + n.get(3)));
+                l.add((o.get(1) * o.get(3) + n.get(1) * n.get(3)) / (o.get(3) + n.get(3)));
+                l.add((o.get(2) * o.get(3) + n.get(2) * n.get(3)) / (o.get(3) + n.get(3)));
+                l.add(o.get(3) + 1);
+                return l;
+            });
+        }
+        Map<String, Optional<Course>> numberToTitle = courses.stream().collect(
+            Collectors.groupingBy(Course::getCourseNumber,
+                Collectors.maxBy(Comparator.comparing(Course::getLaunchDate))));
+
         return courses.stream().sorted((p, q) -> {
             double MarkP =
-                (age - p.getAge()) * (age - p.getAge()) + (gender - p.getPercentMale()) * (
-                    gender - p.getPercentMale()) + (isBachelorOrHigher - p.getPercentDegree()) * (
-                    isBachelorOrHigher - p.getPercentDegree());
+                (age - map.get(p.getCourseNumber()).get(0)) * (age - map.get(p.getCourseNumber())
+                    .get(0)) + (gender * 100 - map.get(p.getCourseNumber()).get(1)) * (gender * 100
+                    - map.get(p.getCourseNumber()).get(1))
+                    + (isBachelorOrHigher * 100 - map.get(p.getCourseNumber()).get(2)) * (
+                    isBachelorOrHigher * 100 - map.get(p.getCourseNumber()).get(2));
+            String TitleP=numberToTitle.get(p.getCourseNumber()).get().getCourseTitle();
             double MarkQ =
-                (age - q.getAge()) * (age - q.getAge()) + (gender - q.getPercentMale()) * (
-                    gender - q.getPercentMale()) + (isBachelorOrHigher - q.getPercentDegree()) * (
-                    isBachelorOrHigher - q.getPercentDegree());
+                (age - map.get(q.getCourseNumber()).get(0)) * (age - map.get(q.getCourseNumber())
+                    .get(0)) + (gender * 100 - map.get(q.getCourseNumber()).get(1)) * (gender * 100
+                    - map.get(q.getCourseNumber()).get(1))
+                    + (isBachelorOrHigher * 100 - map.get(q.getCourseNumber()).get(2)) * (
+                    isBachelorOrHigher * 100 - map.get(q.getCourseNumber()).get(2));
+            String TitleQ=numberToTitle.get(q.getCourseNumber()).get().getCourseTitle();
             if (MarkP > MarkQ) {
                 return 1;
             } else if (MarkP == MarkQ) {
-                return 0;
+                return TitleP.compareTo(TitleQ);
             } else {
                 return -1;
             }
-        }).limit(10).map(Course::getCourseTitle).toList();
+        }).map((e) ->
+        {
+            return e.getCourseNumber();
+        }).distinct().map((e) ->
+        {
+            return numberToTitle.get(e).get().getCourseTitle();
+        }).distinct().limit(10).toList();
     }
 
     class Course {
@@ -308,6 +337,23 @@ public class OnlineCoursesAnalyzer {
 
         public double getPercentDegree() {
             return this.percentDegree;
+        }
+
+        public String getCourseNumber() {
+            return this.number;
+        }
+
+        public Date getLaunchDate() {
+            return this.launchDate;
+        }
+
+        public List<Double> getNumbers() {
+            List<Double> l = new ArrayList<>();
+            l.add(this.medianAge);
+            l.add(this.percentMale);
+            l.add(this.percentDegree);
+            l.add(1.0);
+            return l;
         }
     }
 }
