@@ -3,16 +3,18 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
-import java.util.Date;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.TreeMap;
-import java.util.stream.Collectors;
+import java.util.TreeSet;
 
 /**
  * This is just a demo for you, please run it on JDK17 (some statements may be not allowed in lower
@@ -88,44 +90,45 @@ public class OnlineCoursesAnalyzer {
 
     //3
     public Map<String, List<List<String>>> getCourseListOfInstructor() {
-        Map<String, List<List<String>>> map = new LinkedHashMap<>();
+        Map<String, List<Set<String>>> map = new HashMap<>();
         for (Course i : courses) {
             if (i.getInstructor().indexOf(',') == -1) {
-                List<List<String>> list = new ArrayList<List<String>>();
-                List<String> listList = new ArrayList<String>();
-                listList.add(i.getCourseTitle());
-                list.add(listList);
-                listList = new ArrayList<String>();
-                list.add(listList);
+                List<Set<String>> list = new ArrayList<Set<String>>();
+                Set<String> setList = new TreeSet<String>();
+                setList.add(i.getCourseTitle());
+                list.add(setList);
+                list.add(new TreeSet<String>());
                 map.merge(i.getInstructor(), list, (o, n) -> {
-                    if (o.get(0).indexOf(i.getCourseTitle()) == -1) {
-                        List<List<String>> l = o;
-                        l.get(0).add(i.getCourseTitle());
-                        return l;
-                    }
-                    return o;
+                    List<Set<String>> l = o;
+                    l.get(0).add(i.getCourseTitle());
+                    return l;
                 });
             } else {
-                String[] instructors = i.getInstructor().split(",");
+                String[] instructors = i.getInstructor().split(", ");
                 for (String j : instructors) {
-                    List<List<String>> list = new ArrayList<List<String>>();
-                    List<String> listList = new ArrayList<String>();
-                    list.add(listList);
-                    listList = new ArrayList<String>();
-                    listList.add(i.getCourseTitle());
-                    list.add(listList);
+                    List<Set<String>> list = new ArrayList<Set<String>>();
+                    list.add(new TreeSet<String>());
+                    Set<String> setList = new TreeSet<String>();
+                    setList.add(i.getCourseTitle());
+                    list.add(setList);
                     map.merge(j, list, (o, n) -> {
-                        if (o.get(0).indexOf(i.getCourseTitle()) == -1) {
-                            List<List<String>> l = o;
-                            l.get(1).add(i.getCourseTitle());
-                            return l;
-                        }
-                        return o;
+                        List<Set<String>> l = o;
+                        l.get(1).add(i.getCourseTitle());
+                        return l;
                     });
                 }
             }
         }
-        return map;
+        List<Entry<String, List<Set<String>>>> mapList = new ArrayList<Entry<String, List<Set<String>>>>(
+            map.entrySet());
+        Map<String, List<List<String>>> map1 = new HashMap<>();
+        for (Map.Entry<String, List<Set<String>>> i : mapList) {
+            List<List<String>> list = new ArrayList<>();
+            list.add(i.getValue().get(0).stream().toList());
+            list.add(i.getValue().get(1).stream().toList());
+            map1.put(i.getKey(), list);
+        }
+        return map1;
     }
 
     //4
